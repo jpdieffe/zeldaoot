@@ -98,6 +98,8 @@ EMSCRIPTEN_KEEPALIVE const char* together_state() {
         state["scene"] = gPlayState->sceneNum;
         state["entrance"] = gSaveContext.entranceIndex;
         state["age"] = gSaveContext.linkAge;
+        state["equipment"] = gSaveContext.inventory.equipment;
+        state["questItems"] = gSaveContext.inventory.questItems;
         state["x"] = player->actor.world.pos.x;
         state["y"] = player->actor.world.pos.y;
         state["z"] = player->actor.world.pos.z;
@@ -120,5 +122,6 @@ EMSCRIPTEN_KEEPALIVE void together_debug(int command, int value) {
     if (command == 1) { gSaveContext.health = value; grace = 0; }
     if (command == 2) { gSaveContext.health = 0; grace = 0; }
     if (command == 3) { queuedEntrance = value; }
+    if (command == 4) { Item_Give(gPlayState, ITEM_SWORD_KOKIRI); }
 }
 }
