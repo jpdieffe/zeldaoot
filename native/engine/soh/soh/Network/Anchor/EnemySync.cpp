@@ -1757,6 +1757,9 @@ void RegisterHooks(bool isConnected) {
             OnEnemyDefeated((Actor*)actor);
         }
     });
+    COND_HOOK(OnBossDefeat, isConnected, [](void* actor) {
+        if (SyncEnabled() && actor != NULL) OnEnemyDefeated((Actor*)actor);
+    });
 
     COND_HOOK(OnActorDestroy, true, [](void* actor) { OnEnemyActorDestroy((Actor*)actor); });
 
