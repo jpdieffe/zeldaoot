@@ -205,3 +205,101 @@
  
      if (eyeYaw > 6000) {
          eyeYaw = 6000;
+--- a/soh/src/overlays/actors/ovl_Boss_Goma/z_boss_goma.c
++++ b/soh/src/overlays/actors/ovl_Boss_Goma/z_boss_goma.c
+@@ -1621,7 +1621,7 @@
+     }
+ 
+     if (!this->doNotMoveThisFrame) {
+-        rot = Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor);
++        rot = this->actor.yawTowardsPlayer;
+ 
+         if (this->patienceTimer != 0) {
+             this->patienceTimer--;
+--- a/soh/src/overlays/actors/ovl_En_Firefly/z_en_firefly.c
++++ b/soh/src/overlays/actors/ovl_En_Firefly/z_en_firefly.c
+@@ -12,6 +12,8 @@
+ 
+ #define FLAGS \
+     (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_IGNORE_QUAKE | ACTOR_FLAG_CAN_ATTACH_TO_ARROW)
++
++extern Actor* TogetherEnemy_GetTarget(Actor*);
+ 
+ void EnFirefly_Init(Actor* thisx, PlayState* play);
+ void EnFirefly_Destroy(Actor* thisx, PlayState* play);
+@@ -300,7 +302,7 @@
+ }
+ 
+ s32 EnFirefly_ReturnToPerch(EnFirefly* this, PlayState* play) {
+-    Player* player = GET_PLAYER(play);
++    Player* player = (Player*)TogetherEnemy_GetTarget(&this->actor);
+     f32 distFromHome;
+ 
+     if (this->actor.params != KEESE_NORMAL_PERCH) {
+@@ -457,7 +459,7 @@
+ }
+ 
+ void EnFirefly_DiveAttack(EnFirefly* this, PlayState* play) {
+-    Player* player = GET_PLAYER(play);
++    Player* player = (Player*)TogetherEnemy_GetTarget(&this->actor);
+     Vec3f preyPos;
+ 
+     SkelAnime_Update(&this->skelAnime);
+@@ -588,7 +590,7 @@
+ }
+ 
+ void EnFirefly_DisturbDiveAttack(EnFirefly* this, PlayState* play) {
+-    Player* player = GET_PLAYER(play);
++    Player* player = (Player*)TogetherEnemy_GetTarget(&this->actor);
+     Vec3f preyPos;
+ 
+     SkelAnime_Update(&this->skelAnime);
+--- a/soh/src/overlays/actors/ovl_En_Karebaba/z_en_karebaba.c
++++ b/soh/src/overlays/actors/ovl_En_Karebaba/z_en_karebaba.c
+@@ -12,6 +12,8 @@
+ #include "soh/ResourceManagerHelpers.h"
+ 
+ #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE)
++
++extern Actor* TogetherEnemy_GetTarget(Actor*);
+ 
+ void EnKarebaba_Init(Actor* thisx, PlayState* play);
+ void EnKarebaba_Destroy(Actor* thisx, PlayState* play);
+@@ -256,7 +258,7 @@
+ }
+ 
+ void EnKarebaba_Upright(EnKarebaba* this, PlayState* play) {
+-    Player* player = GET_PLAYER(play);
++    Player* player = (Player*)TogetherEnemy_GetTarget(&this->actor);
+ 
+     SkelAnime_Update(&this->skelAnime);
+ 
+--- a/soh/src/overlays/actors/ovl_En_Sw/z_en_sw.c
++++ b/soh/src/overlays/actors/ovl_En_Sw/z_en_sw.c
+@@ -4,6 +4,8 @@
+ #include "soh/ResourceManagerHelpers.h"
+ 
+ #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_UPDATE_CULLING_DISABLED)
++
++extern Actor* TogetherEnemy_GetTarget(Actor*);
+ 
+ void EnSw_Init(Actor* thisx, PlayState* play);
+ void EnSw_Destroy(Actor* thisx, PlayState* play);
+@@ -698,7 +700,7 @@
+ }
+ 
+ s32 func_80B0DEA8(EnSw* this, PlayState* play, s32 arg2) {
+-    Player* player = GET_PLAYER(play);
++    Player* player = (Player*)TogetherEnemy_GetTarget(&this->actor);
+     CollisionPoly* sp58;
+     s32 sp54;
+     Vec3f sp48;
+@@ -842,7 +844,7 @@
+ }
+ 
+ void func_80B0E728(EnSw* this, PlayState* play) {
+-    Player* player = GET_PLAYER(play);
++    Player* player = (Player*)TogetherEnemy_GetTarget(&this->actor);
+     s32 pad;
+ 
+     if (DECR(this->unk_442) != 0) {

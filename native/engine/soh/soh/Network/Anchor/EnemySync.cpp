@@ -18,7 +18,7 @@ extern "C" {
 #include "functions.h"
 #include "src/overlays/actors/ovl_Boss_Goma/z_boss_goma.h"
 #include "src/overlays/actors/ovl_En_Dekubaba/z_en_dekubaba.h"
-#include "src/overlays/actors/ovl_En_St/z_en_st.h"
+typedef struct EnSt EnSt;
 void BossGoma_SetupDefeated(BossGoma*, PlayState*);
 void BossGoma_SetupFloorIdle(BossGoma*);
 s32 EnSt_CheckHitLink(EnSt*, PlayState*);
@@ -1603,6 +1603,10 @@ static void OnEnemyDefeated(Actor* actor) {
     }
     state.deathCooldown = DEATH_COOLDOWN_FRAMES;
     ESYNC_LOG("[EnemySync] DEFEAT id={} -> broadcasting death", actor->id);
+    if (actor->id == ACTOR_BOSS_GOMA) {
+        actor->colChkInfo.health = 0;
+        ReleaseForDeath(actor);
+    }
     // Defeat-hook deaths (regrowers like En_Karebaba never Actor_Kill): the
     // receiver must not force-kill if its copy can't consume the lethal hit.
     TogetherEnemy::SendPacket_EnemyDied(actor, state.key, /*permanent=*/false);
@@ -1727,6 +1731,15 @@ extern "C" void TogetherEnemy_ColliderSubmit(Actor* actor, Collider* collider, i
 
 nlohmann::json Describe() {
     nlohmann::json result = {{"authority", CurrentAuthorityId()}, {"enemies", nlohmann::json::array()}};
+    int hearts = 0, warps = 0;
+    for (int category = 0; category < ACTORCAT_MAX; ++category) {
+        for (Actor* actor = gPlayState->actorCtx.actorLists[category].head; actor; actor = actor->next) {
+            if (actor->id == ACTOR_ITEM_B_HEART) ++hearts;
+            if (actor->id == ACTOR_DOOR_WARP1) ++warps;
+        }
+    }
+    result["hearts"] = hearts; result["warps"] = warps;
+    result["clear"] = Flags_GetClear(gPlayState, gPlayState->roomCtx.curRoom.num) != 0;
     for (auto& [actor, st] : tracked) {
         auto e = SnapshotEnemy(actor, st);
         e["id"] = actor->id; e["room"] = actor->room;
@@ -1748,7 +1761,11 @@ void Debug(int command, int value) {
         if (actor->id != ACTOR_BOSS_GOMA) continue;
         auto* g = (BossGoma*)actor;
         if (command == 10) {
-            g->disableGameplayLogic = false; g->subCamId = SUB_CAM_ID_DONE;
+            g->disableGameplayLogic = false;
+            if (g->subCameraId != 0) func_800C08AC(gPlayState, g->subCameraId, 0);
+            g->subCameraId = 0;
+            Play_ChangeCameraStatus(gPlayState, 0, 7);
+            func_8002DF54(gPlayState, &GET_PLAYER(gPlayState)->actor, 7);
             gPlayState->csCtx.state = 0;
             GET_PLAYER(gPlayState)->stateFlags1 &= ~PLAYER_STATE1_IN_CUTSCENE;
             BossGoma_SetupFloorIdle(g);
