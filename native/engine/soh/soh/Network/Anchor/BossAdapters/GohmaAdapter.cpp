@@ -11,6 +11,7 @@ extern "C" {
 #include "src/overlays/actors/ovl_Boss_Goma/z_boss_goma.h"
 
 void BossGoma_SetupDefeated(BossGoma* thisx, PlayState* play);
+void BossGoma_SetupFloorIdle(BossGoma* thisx);
 extern PlayState* gPlayState;
 }
 
@@ -112,8 +113,18 @@ static bool Gohma_OnPhaseChange(Actor* actor, uint8_t fromPhase, uint8_t toPhase
 
 static bool Gohma_ShouldMirror(Actor* actor, uint8_t streamedPhase) {
     BossGoma* g = (BossGoma*)actor;
-    // Mirror only during the fight proper, and only once our own intro is done
-    // (the intro cutscene must run locally on every client).
+    // A late arrival/reconnect must join an already-running host fight. Waiting
+    // for its local look-at-the-ceiling intro can strand it while everyone else
+    // fights. Only the host advances the shared encounter from intro to combat.
+    if (streamedPhase == GOHMA_PHASE_FIGHT && g->disableGameplayLogic && actor->colChkInfo.health > 0) {
+        if (g->subCameraId != 0) func_800C08AC(gPlayState, g->subCameraId, 0);
+        g->subCameraId = 0;
+        Play_ChangeCameraStatus(gPlayState, 0, 7);
+        func_80064534(gPlayState, &gPlayState->csCtx);
+        Player_SetCsActionWithHaltedActors(gPlayState, actor, 7);
+        g->disableGameplayLogic = false;
+        BossGoma_SetupFloorIdle(g);
+    }
     return streamedPhase == GOHMA_PHASE_FIGHT && !g->disableGameplayLogic;
 }
 
