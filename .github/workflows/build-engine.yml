@@ -73,6 +73,18 @@ jobs:
           cp upstream/build-web/soh/soh.html engine/upstream.html
           cp upstream/soh/soh/web/soh.o2r engine/
           echo '${{ github.sha }}' > engine/build-commit.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('upstream')
+          notices = []
+          for path in sorted(root.rglob('*')):
+              if path.is_file() and path.name.upper().startswith(('LICENSE', 'COPYING')) and '.git' not in path.parts:
+                  notices.append('\n\n--- ' + str(path.relative_to(root)) + ' ---\n' + path.read_text(errors='replace'))
+          Path('engine/library-notices.txt').write_text('Pinned engine and dependency license notices\n' + ''.join(notices))
+          controllers = list(root.rglob('gamecontrollerdb.txt'))
+          if controllers:
+              Path('engine/gamecontrollerdb.txt').write_bytes(controllers[0].read_bytes())
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: zelda-engine
