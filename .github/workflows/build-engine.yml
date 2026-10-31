@@ -44,10 +44,18 @@ jobs:
       - name: Configure engine
         working-directory: upstream
         run: emcmake cmake -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
-      - name: Preserve cached dependency timestamps
+      - name: Preserve pinned source and dependency timestamps
         run: |
           REF=$(find upstream/build-web -name '*.o' -printf '%T@ %p\n' | sort -n | head -1 | cut -d' ' -f2)
-          if [ -n "$REF" ]; then find upstream/build-web/_deps -type f -newer "$REF" -exec touch -r "$REF" {} +; fi
+          if [ -n "$REF" ]; then
+            REF=$(realpath "$REF")
+            git -C upstream ls-files -z | (cd upstream && xargs -0 touch -r "$REF")
+            export ZELDA_CACHE_REFERENCE="$REF"
+            git -C upstream submodule foreach --recursive 'git ls-files -z | xargs -0 touch -r "$ZELDA_CACHE_REFERENCE"'
+            find upstream/build-web/_deps -type f -newer "$REF" -exec touch -r "$REF" {} +
+            # Our injected source remains newer and must compile on every build.
+            touch upstream/soh/soh/web/together.cpp
+          fi
       - name: Compile native game
         working-directory: upstream
         run: emmake cmake --build build-web --parallel 2
