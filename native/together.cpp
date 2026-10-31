@@ -117,6 +117,13 @@ EMSCRIPTEN_KEEPALIVE void together_restart(int entrance, int epoch) {
     resetEpoch = epoch;
     queuedEntrance = entrance;
 }
+EMSCRIPTEN_KEEPALIVE int together_meet() {
+    if (!loaded()) return 0;
+    const auto other = Anchor::Instance->ownClientId == 1 ? 2 : 1;
+    if (!Anchor::Instance->CanTeleportTo(other)) return 0;
+    Anchor::Instance->SendPacket_RequestTeleport(other);
+    return 1;
+}
 EMSCRIPTEN_KEEPALIVE void together_debug(int command, int value) {
     if (!debugEnabled() || !loaded()) return;
     if (command == 1) { gSaveContext.health = value; grace = 0; }
