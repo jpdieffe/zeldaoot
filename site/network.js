@@ -41,19 +41,22 @@ export class AdventureNetwork {
   });
   connection.on('error',()=>{connection.close();if(this.connection===connection){this.connection=null;if(this.role==='join')this.scheduleJoin();}});
  }
- send(message){if(this.connection?.open)this.connection.send(message);}
+ send(message){if(message.kind==='anchor'&&message.packet?.type?.startsWith('ENEMY_'))message={...message,combatEpoch:this.epoch};if(this.connection?.open)this.connection.send(message);}
  receive(message){
   if(!message||typeof message.kind!=='string')return;
   if(message.kind==='full'){this.onNotice('This adventure already has two players. Create another room.');this.close();return;}
   if(message.kind==='welcome'&&this.role==='join'){this.epoch=message.epoch;if(this.pendingDeath)this.send({...this.pendingDeath,epoch:this.epoch});return;}
-  if(message.kind==='anchor'){if(this.role==='host')this.relay.receive(2,message.packet);else this.deliver(message.packet);}
+  if(message.kind==='anchor'){
+   if(message.packet?.type?.startsWith('ENEMY_')&&message.combatEpoch!==this.epoch)return;
+   if(this.role==='host')this.relay.receive(2,message.packet);else this.deliver(message.packet);
+  }
   if(message.kind==='state')this.onState(this.id===1?2:1,message.state);
   if(message.kind==='death'&&this.role==='host')this.rules.death({...message,id:2});
   if(message.kind==='reset'&&this.role==='join')this.applyReset(message);
  }
  applyReset(reset){if(reset.epoch<=this.epoch)return;this.pendingDeath=null;this.epoch=reset.epoch;this.onReset(reset);}
  death(serial,entrance){const request={kind:'death',id:this.id,serial,entrance,epoch:this.epoch};if(this.role==='host')this.rules.death(request);else{this.pendingDeath=request;this.send(request);}}
- status(state){this.onState(this.id,state);this.send({kind:'state',state});}
+ status(state){this.onState(this.id,state);const{combat,...publicState}=state;this.send({kind:'state',state:publicState});}
  nativeSend(raw){let packet;try{packet=JSON.parse(raw);}catch{return;}if(this.role==='host')this.relay.receive(1,packet);else this.send({kind:'anchor',packet});}
  deliver(packet){if(this.socket?.readyState===1)this.socket.deliver(packet);else{if(this.pending.length>256)this.pending.shift();this.pending.push(packet);}}
  bind(socket){this.socket=socket;if(this.role==='host'){queueMicrotask(()=>{this.relay.connect(1);socket.open();});}else if(this.connected)queueMicrotask(()=>socket.open());}

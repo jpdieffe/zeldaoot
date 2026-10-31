@@ -87,6 +87,7 @@ struct TrackedState {
     bool dying = false;               // death handoff latch: never re-suppress
     bool cullForced = false;          // we set ACTOR_FLAG_UPDATE_CULLING_DISABLED
     bool hadUncullFlag = false;       // ...and this was its original state
+    bool hadDrawUncullFlag = false;
     uint64_t lastHitReqTick = 0;      // one hit-request per actor per tick
     // --- dynamic spawns / adapters ---
     int16_t spawnActorId = 0; // identity at spawn (params mutate at runtime)
@@ -327,15 +328,18 @@ static bool AnySameScenePeer() {
 static void ForceUncull(Actor* actor, TrackedState& st) {
     if (!st.cullForced) {
         st.hadUncullFlag = (actor->flags & ACTOR_FLAG_UPDATE_CULLING_DISABLED) != 0;
+        st.hadDrawUncullFlag = (actor->flags & ACTOR_FLAG_DRAW_CULLING_DISABLED) != 0;
         st.cullForced = true;
     }
-    actor->flags |= ACTOR_FLAG_UPDATE_CULLING_DISABLED;
+    // Many enemy hit spheres are computed during draw, even for a guest's hits.
+    actor->flags |= ACTOR_FLAG_UPDATE_CULLING_DISABLED | ACTOR_FLAG_DRAW_CULLING_DISABLED;
 }
 
 static void RestoreCull(Actor* actor, TrackedState& st) {
     if (st.cullForced && !st.hadUncullFlag) {
         actor->flags &= ~ACTOR_FLAG_UPDATE_CULLING_DISABLED;
     }
+    if (st.cullForced && !st.hadDrawUncullFlag) actor->flags &= ~ACTOR_FLAG_DRAW_CULLING_DISABLED;
     st.cullForced = false;
 }
 
@@ -673,6 +677,23 @@ static void SubmitColliders(Actor* actor, TrackedState& st, RemoteEnemyState& r)
         if (col == nullptr || col->actor != actor) {
             continue;
         }
+        col->atFlags = cs.at("at").get<uint8_t>();
+        col->acFlags = cs.at("ac").get<uint8_t>();
+        col->ocFlags1 = cs.at("oc1").get<uint8_t>();
+        col->ocFlags2 = cs.at("oc2").get<uint8_t>();
+        col->colType = cs.at("type").get<uint8_t>();
+        size_t ei = 0;
+        ForEachColliderInfo(col, [&](ColliderInfo* info) {
+            if (ei >= cs.at("ei").size()) return;
+            const auto& flags = cs["ei"][ei++];
+            info->toucherFlags = flags[0].get<uint8_t>();
+            info->bumperFlags = flags[1].get<uint8_t>();
+            info->ocElemFlags = flags[2].get<uint8_t>();
+            info->toucher.damage = flags[3].get<uint8_t>();
+            info->toucher.effect = flags[4].get<uint8_t>();
+            info->toucher.dmgFlags = flags[5].get<uint32_t>();
+            info->bumper.dmgFlags = flags[6].get<uint32_t>();
+        });
         if (col->shape == COLSHAPE_CYLINDER) {
             // Repositioned from the streamed world.pos (ApplyPose ran first) — accurate.
             auto& d = ((ColliderCylinder*)col)->dim;
@@ -710,6 +731,12 @@ static void SubmitColliders(Actor* actor, TrackedState& st, RemoteEnemyState& r)
                             actor->id, st.key);
             }
             continue;
+        } else if (col->shape == COLSHAPE_JNTSPH && cs.contains("sph")) {
+            auto* sph = (ColliderJntSph*)col;
+            for (int i = 0; i < sph->count && i < (int)cs["sph"].size(); ++i) {
+                sph->elements[i].dim.worldSphere.center = cs["sph"][i][0].get<Vec3s>();
+                sph->elements[i].dim.worldSphere.radius = cs["sph"][i][1].get<int16_t>();
+            }
         }
         // JntSph world spheres refresh in the enemy's PostLimbDraw (still runs on
         // suppressed mirrors); cylinders repositioned above; quads carry fresh
@@ -933,9 +960,27 @@ static nlohmann::json SnapshotEnemy(Actor* actor, TrackedState& st) {
     e["cs"] = nlohmann::json::array();
     for (Collider* col : st.colliders) {
         nlohmann::json c = {{"m", st.colliderMasks[col]}};
+        c["at"] = col->atFlags & ~(AT_HIT | AT_BOUNCED);
+        c["ac"] = col->acFlags & ~(AC_HIT | AC_BOUNCED);
+        c["oc1"] = col->ocFlags1 & ~OC1_HIT;
+        c["oc2"] = col->ocFlags2 & ~OC2_HIT_PLAYER;
+        c["type"] = col->colType;
+        c["ei"] = nlohmann::json::array();
+        ForEachColliderInfo(col, [&](ColliderInfo* info) {
+            c["ei"].push_back({info->toucherFlags & ~(TOUCH_HIT | TOUCH_DREW_HITMARK),
+                info->bumperFlags & ~(BUMP_HIT | BUMP_DRAW_HITMARK), info->ocElemFlags & ~OCELEM_HIT,
+                info->toucher.damage, info->toucher.effect, info->toucher.dmgFlags, info->bumper.dmgFlags});
+        });
         if (col->shape == COLSHAPE_CYLINDER) {
             auto& d = ((ColliderCylinder*)col)->dim;
             c["p"] = d.pos; c["r"] = d.radius; c["h"] = d.height; c["y"] = d.yShift;
+        } else if (col->shape == COLSHAPE_JNTSPH) {
+            c["sph"] = nlohmann::json::array();
+            auto* sph = (ColliderJntSph*)col;
+            for (int i = 0; i < sph->count; ++i) {
+                auto& sphere = sph->elements[i].dim.worldSphere;
+                c["sph"].push_back({sphere.center, sphere.radius});
+            }
         }
         e["cs"].push_back(c);
     }
