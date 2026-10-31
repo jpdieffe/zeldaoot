@@ -1,0 +1,12 @@
+{
+  "name": "Ocarina of Time (US 1.2)",
+  "romSha1": "41b3bdc48d98c48529219919015a1af22f5057c2",
+  "romBytes": 33554432,
+  "archive": {
+    "bytes": 33492467,
+    "sha256": "dcd2fcb7a28159eb13ff12d2f27f5f4158018e237956f9dd0d392f4cd907f3b0",
+    "parts": [
+      "assets/oot.o2r"
+    ]
+  }
+}

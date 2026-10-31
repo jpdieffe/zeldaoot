@@ -1,5 +1,6 @@
-﻿// Uses the existing Git credential helper in memory. Never prints credentials.
+// Uses the existing Git credential helper in memory. Never prints credentials.
 import { spawnSync } from 'node:child_process';
+import {writeFile,mkdir} from 'node:fs/promises';
 const credential = spawnSync('git',['credential','fill'],{input:'protocol=https\nhost=github.com\n\n',encoding:'utf8',env:{...process.env,GIT_TERMINAL_PROMPT:'0'}});
 if (credential.status !== 0) throw new Error('No GitHub credential is available through Git.');
 const values=Object.fromEntries(credential.stdout.trim().split(/\r?\n/).map(line=>{const i=line.indexOf('=');return[line.slice(0,i),line.slice(i+1)];}));
@@ -25,6 +26,28 @@ if(action==='inspect') {
 } else if(action==='jobs') {
   const id=process.argv[3];if(!/^\d+$/.test(id))throw new Error('Provide a numeric run ID.');
   const result=await api(`/actions/runs/${id}/jobs`);
-  console.log(JSON.stringify(result.data.jobs?.map(job=>({name:job.name,status:job.status,conclusion:job.conclusion,steps:job.steps?.map(step=>({name:step.name,conclusion:step.conclusion,status:step.status}))})),null,2));
+  console.log(JSON.stringify(result.data.jobs?.map(job=>({name:job.name,started:job.started_at,status:job.status,conclusion:job.conclusion,steps:job.steps?.map(step=>({name:step.name,started:step.started_at,conclusion:step.conclusion,status:step.status}))})),null,2));
+} else if(action==='cancel') {
+  const id=process.argv[3];if(!/^\d+$/.test(id))throw Error('Run ID required');
+  const result=await api(`/actions/runs/${id}/cancel`,'POST');console.log('Cancellation requested:',result.status);
+} else if(action==='job-log') {
+  const id=process.argv[3];if(!/^\d+$/.test(id))throw Error('Run ID required');
+  const jobs=await api(`/actions/runs/${id}/jobs`),job=jobs.data.jobs[0];
+  const response=await fetch(base+`/actions/jobs/${job.id}/logs`,{headers:{Authorization:`Bearer ${values.password}`,Accept:'application/vnd.github+json'}});
+  if(response.ok){await mkdir('.build',{recursive:true});await writeFile(`.build/job-${id}.txt`,await response.text());console.log('Saved job log.');}else console.log('Job log not yet available:',response.status,job.html_url);
+} else if(action==='artifacts') {
+  const id=process.argv[3];if(!/^\d+$/.test(id))throw Error('Run ID required');
+  const result=await api(`/actions/runs/${id}/artifacts`);
+  console.log(JSON.stringify(result.data.artifacts?.map(a=>({id:a.id,name:a.name,bytes:a.size_in_bytes})),null,2));
+} else if(action==='download') {
+  const id=process.argv[3];if(!/^\d+$/.test(id))throw Error('Artifact ID required');
+  const response=await fetch(base+`/actions/artifacts/${id}/zip`,{headers:{Authorization:`Bearer ${values.password}`,Accept:'application/vnd.github+json'}});
+  if(!response.ok)throw Error('Artifact download failed: '+response.status);
+  await mkdir('.build',{recursive:true});await writeFile(`.build/artifact-${id}.zip`,Buffer.from(await response.arrayBuffer()));console.log(`Downloaded .build/artifact-${id}.zip`);
+} else if(action==='logs') {
+  const id=process.argv[3];if(!/^\d+$/.test(id))throw Error('Run ID required');
+  const response=await fetch(base+`/actions/runs/${id}/logs`,{headers:{Authorization:`Bearer ${values.password}`,Accept:'application/vnd.github+json'}});
+  if(!response.ok)throw Error('Log download failed: '+response.status);
+  await mkdir('.build',{recursive:true});await writeFile(`.build/logs-${id}.zip`,Buffer.from(await response.arrayBuffer()));console.log(`Downloaded .build/logs-${id}.zip`);
 } else throw new Error('Unknown GitHub command.');
 
