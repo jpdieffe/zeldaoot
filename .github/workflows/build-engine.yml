@@ -43,7 +43,12 @@ jobs:
             zelda-f81ff64-86e803f0169449c971d3286d720505d7001c7045
             zelda-f81ff64-
       - name: Capture cached compile commands
-        run: ninja -C upstream/build-web -t commands soh > compile-before.txt
+        run: |
+          if [ -f upstream/build-web/build.ninja ]; then
+            ninja -C upstream/build-web -t commands soh > compile-before.txt
+          else
+            touch compile-before.txt
+          fi
       - run: python3 scripts/patch-engine.py upstream
       - name: Configure engine
         working-directory: upstream
