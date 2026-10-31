@@ -12,7 +12,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
@@ -58,7 +58,7 @@ jobs:
           fi
       - name: Compile native game
         working-directory: upstream
-        run: emmake cmake --build build-web --parallel 2
+        run: emmake cmake --build build-web --target soh --parallel 2
       - uses: actions/cache/save@v4
         if: always() && steps.native-cache.outputs.cache-hit != 'true'
         with:
