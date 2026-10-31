@@ -52,7 +52,7 @@ jobs:
       - run: python3 scripts/patch-engine.py upstream
       - name: Configure engine
         working-directory: upstream
-        run: emcmake cmake -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: emcmake cmake -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DSPDLOG_BUILD_SHARED=OFF
       - name: Preserve pinned source and dependency timestamps
         run: |
           REF=$(find upstream/build-web -name '*.o' -printf '%T@ %p\n' | sort -n | head -1 | cut -d' ' -f2)
