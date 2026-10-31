@@ -10,7 +10,7 @@
 #include <libultraship/libultraship.h>
 extern "C" {
 #include "global.h"
-#include "file_choose.h"
+#include "src/overlays/gamestates/ovl_file_choose/file_choose.h"
 #include "functions.h"
 #include "variables.h"
 extern PlayState* gPlayState;
