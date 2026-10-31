@@ -2,7 +2,7 @@ name: Build native Zelda web engine
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feature/shared-combat]
     paths: ['native/**', 'scripts/patch-engine.py', '.github/workflows/build-engine.yml']
 permissions:
   contents: read
@@ -66,7 +66,7 @@ jobs:
             # the same pinned SDK version, invalidating every cached object.
             find "$EMSDK/upstream/lib/clang" -type f -newer "$REF" -exec touch -r "$REF" {} +
             # Our injected source remains newer and must compile on every build.
-            touch upstream/soh/soh/web/together.cpp
+            while IFS= read -r source; do touch "upstream/$source"; done < upstream/.together-changed-files
           fi
       - name: Inspect incremental build plan
         run: |

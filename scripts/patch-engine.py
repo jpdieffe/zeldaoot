@@ -1,7 +1,20 @@
 from pathlib import Path
-import sys, shutil
+import sys, shutil, subprocess
 source = Path(sys.argv[1]).resolve()
 root = Path(__file__).resolve().parent.parent
+changed = []
+for patch in ['combat.patch', 'targeting.patch']:
+    path = root / 'native' / patch
+    subprocess.run(['git', 'apply', '--check', str(path)], cwd=source, check=True)
+    subprocess.run(['git', 'apply', str(path)], cwd=source, check=True)
+    changed.extend(line[6:] for line in path.read_text(encoding='utf-8').splitlines() if line.startswith('+++ b/'))
+for path in (root / 'native/engine').rglob('*'):
+    if path.is_file():
+        relative = path.relative_to(root / 'native/engine')
+        target = source / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+        changed.append(relative.as_posix())
 # On a second configure, find_package can discover exported build packages
 # instead of the original static targets. Keep the web build using its pinned
 # source dependencies, with identical compiler definitions on every run.
@@ -21,4 +34,6 @@ if bridge.exists():
     text = cmake.read_text()
     text += '\nif(BUILD_FOR_WEB)\n target_sources(soh PRIVATE soh/web/together.cpp)\nendif()\n'
     cmake.write_text(text)
-print('Engine source prepared.')
+changed.append('soh/soh/web/together.cpp')
+(source / '.together-changed-files').write_text('\n'.join(sorted(set(changed)))+'\n')
+print('Engine source prepared:', len(changed), 'combat sources/headers refreshed.')

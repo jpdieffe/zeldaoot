@@ -1,0 +1,207 @@
+--- a/soh/src/overlays/actors/ovl_En_Dekubaba/z_en_dekubaba.c
++++ b/soh/src/overlays/actors/ovl_En_Dekubaba/z_en_dekubaba.c
+@@ -6,6 +6,8 @@
+ #include "soh/ResourceManagerHelpers.h"
+ 
+ #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE)
++
++extern Actor* TogetherEnemy_GetTarget(Actor*);
+ 
+ void EnDekubaba_Init(Actor* thisx, PlayState* play);
+ void EnDekubaba_Destroy(Actor* thisx, PlayState* play);
+@@ -488,7 +490,7 @@
+ }
+ 
+ void EnDekubaba_Grow(EnDekubaba* this, PlayState* play) {
+-    Player* player = GET_PLAYER(play);
++    Actor* target = TogetherEnemy_GetTarget(&this->actor);
+     f32 headDistHorizontal;
+     f32 headDistVertical;
+     f32 headShiftX;
+@@ -532,7 +534,7 @@
+     }
+ 
+     if (this->timer < 10) {
+-        Math_ApproachS(&this->actor.shape.rot.y, Math_Vec3f_Yaw(&this->actor.home.pos, &player->actor.world.pos), 2,
++        Math_ApproachS(&this->actor.shape.rot.y, Math_Vec3f_Yaw(&this->actor.home.pos, &target->world.pos), 2,
+                        0xE38);
+         if (headShiftZ) {} // One way of fake-matching
+     }
+@@ -547,7 +549,7 @@
+                              1, HAHEN_OBJECT_DEFAULT, 10, NULL);
+ 
+     if (this->timer == 0) {
+-        if (Math_Vec3f_DistXZ(&this->actor.home.pos, &player->actor.world.pos) < 240.0f * this->size) {
++        if (Math_Vec3f_DistXZ(&this->actor.home.pos, &target->world.pos) < 240.0f * this->size) {
+             EnDekubaba_SetupPrepareLunge(this);
+         } else {
+             EnDekubaba_SetupRetract(this);
+@@ -628,7 +630,7 @@
+ }
+ 
+ void EnDekubaba_DecideLunge(EnDekubaba* this, PlayState* play) {
+-    Player* player = GET_PLAYER(play);
++    Actor* target = TogetherEnemy_GetTarget(&this->actor);
+ 
+     SkelAnime_Update(&this->skelAnime);
+     if (Animation_OnFrame(&this->skelAnime, 0.0f) || Animation_OnFrame(&this->skelAnime, 12.0f)) {
+@@ -643,7 +645,7 @@
+         this->timer--;
+     }
+ 
+-    Math_ApproachS(&this->actor.shape.rot.y, Math_Vec3f_Yaw(&this->actor.home.pos, &player->actor.world.pos), 2,
++    Math_ApproachS(&this->actor.shape.rot.y, Math_Vec3f_Yaw(&this->actor.home.pos, &target->world.pos), 2,
+                    (this->timer % 5) * 0x222);
+ 
+     if (this->timer < 10) {
+@@ -666,7 +668,7 @@
+ 
+     EnDekubaba_UpdateHeadPosition(this);
+ 
+-    if (240.0f * this->size < Math_Vec3f_DistXZ(&this->actor.home.pos, &player->actor.world.pos)) {
++    if (240.0f * this->size < Math_Vec3f_DistXZ(&this->actor.home.pos, &target->world.pos)) {
+         EnDekubaba_SetupRetract(this);
+     } else if ((this->timer == 0) || (this->actor.xzDistToPlayer < 80.0f * this->size)) {
+         EnDekubaba_SetupPrepareLunge(this);
+@@ -733,14 +735,14 @@
+ }
+ 
+ void EnDekubaba_PrepareLunge(EnDekubaba* this, PlayState* play) {
+-    Player* player = GET_PLAYER(play);
++    Actor* target = TogetherEnemy_GetTarget(&this->actor);
+ 
+     if (this->timer != 0) {
+         this->timer--;
+     }
+ 
+     Math_SmoothStepToS(&this->actor.shape.rot.x, 0x1800, 2, 0xE38, 0x71C);
+-    Math_ApproachS(&this->actor.shape.rot.y, Math_Vec3f_Yaw(&this->actor.home.pos, &player->actor.world.pos), 2, 0xE38);
++    Math_ApproachS(&this->actor.shape.rot.y, Math_Vec3f_Yaw(&this->actor.home.pos, &target->world.pos), 2, 0xE38);
+     Math_ScaledStepToS(&this->stemSectionAngle[0], 0xAAA, 0x444);
+     Math_ScaledStepToS(&this->stemSectionAngle[1], -0x4718, 0x888);
+     Math_ScaledStepToS(&this->stemSectionAngle[2], -0x6AA4, 0x888);
+--- a/soh/src/overlays/actors/ovl_Boss_Goma/z_boss_goma.c
++++ b/soh/src/overlays/actors/ovl_Boss_Goma/z_boss_goma.c
+@@ -28,6 +28,8 @@
+     VISUALSTATE_STUNNED = 4, // main: greenish cyan, alternates with blue; eye: greenish cyan
+     VISUALSTATE_HIT          // main: greenish cyan, alternates with red; eye: greenish cyan
+ } GohmaVisualState;
++
++extern Actor* TogetherEnemy_GetTarget(Actor*);
+ 
+ void BossGoma_Init(Actor* thisx, PlayState* play);
+ void BossGoma_Destroy(Actor* thisx, PlayState* play);
+@@ -1269,7 +1271,7 @@
+     Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
+ 
+     if (this->skelanime.curFrame >= (19.0f + 1.0f / 3.0f) && this->skelanime.curFrame <= 30.0f) {
+-        Math_ApproachS(&this->actor.world.rot.y, Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor), 3,
++        Math_ApproachS(&this->actor.world.rot.y, this->actor.yawTowardsPlayer, 3,
+                        0xBB8);
+     }
+ 
+@@ -1438,7 +1440,7 @@
+ void BossGoma_FallJump(BossGoma* this, PlayState* play) {
+     SkelAnime_Update(&this->skelanime);
+     Math_ApproachS(&this->actor.shape.rot.x, 0, 2, 0xBB8);
+-    Math_ApproachS(&this->actor.world.rot.y, Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor), 2,
++    Math_ApproachS(&this->actor.world.rot.y, this->actor.yawTowardsPlayer, 2,
+                    0x7D0);
+ 
+     if (this->actor.bgCheckFlags & 1) {
+@@ -1455,7 +1457,7 @@
+ void BossGoma_FallStruckDown(BossGoma* this, PlayState* play) {
+     SkelAnime_Update(&this->skelanime);
+     Math_ApproachS(&this->actor.shape.rot.x, 0, 2, 0xBB8);
+-    Math_ApproachS(&this->actor.world.rot.y, Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor), 3,
++    Math_ApproachS(&this->actor.world.rot.y, this->actor.yawTowardsPlayer, 3,
+                    0x7D0);
+ 
+     if (this->actor.bgCheckFlags & 1) {
+@@ -1766,9 +1768,9 @@
+ 
+         if (this->eyeState != EYESTATE_IRIS_NO_FOLLOW_NO_IFRAMES) {
+             targetEyeIrisRotY =
+-                Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor) - this->actor.shape.rot.y;
++                this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
+             targetEyeIrisRotX =
+-                Actor_WorldPitchTowardActor(&this->actor, &GET_PLAYER(play)->actor) - this->actor.shape.rot.x;
++                Actor_WorldPitchTowardActor(&this->actor, TogetherEnemy_GetTarget(&this->actor)) - this->actor.shape.rot.x;
+ 
+             if (this->actor.shape.rot.x > 0x4000 || this->actor.shape.rot.x < -0x4000) {
+                 targetEyeIrisRotY = -(s16)(targetEyeIrisRotY + 0x8000);
+--- a/soh/src/overlays/actors/ovl_En_Goma/z_en_goma.c
++++ b/soh/src/overlays/actors/ovl_En_Goma/z_en_goma.c
+@@ -9,6 +9,8 @@
+ #define FLAGS                                                                                 \
+     (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_HOSTILE | ACTOR_FLAG_UPDATE_CULLING_DISABLED | \
+      ACTOR_FLAG_DRAW_CULLING_DISABLED)
++
++extern Actor* TogetherEnemy_GetTarget(Actor*);
+ 
+ void EnGoma_Init(Actor* thisx, PlayState* play);
+ void EnGoma_Destroy(Actor* thisx, PlayState* play);
+@@ -202,7 +204,7 @@
+ void EnGoma_Flee(EnGoma* this, PlayState* play) {
+     SkelAnime_Update(&this->skelanime);
+     Math_ApproachF(&this->actor.speedXZ, 20.0f / 3.0f, 0.5f, 2.0f);
+-    Math_ApproachS(&this->actor.world.rot.y, Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor) + 0x8000,
++    Math_ApproachS(&this->actor.world.rot.y, this->actor.yawTowardsPlayer + 0x8000,
+                    3, 2000);
+     Math_ApproachS(&this->actor.shape.rot.y, this->actor.world.rot.y, 2, 3000);
+ 
+@@ -274,13 +276,13 @@
+ }
+ 
+ void EnGoma_Egg(EnGoma* this, PlayState* play) {
+-    Player* player = GET_PLAYER(play);
++    Actor* target = TogetherEnemy_GetTarget(&this->actor);
+     s32 i;
+ 
+     this->eggSquishAngle += 1.0f;
+     Math_ApproachF(&this->eggSquishAmount, 0.1f, 1.0f, 0.005f);
+-    if (fabsf(this->actor.world.pos.x - player->actor.world.pos.x) < 100.0f &&
+-        fabsf(this->actor.world.pos.z - player->actor.world.pos.z) < 100.0f) {
++    if (fabsf(this->actor.world.pos.x - target->world.pos.x) < 100.0f &&
++        fabsf(this->actor.world.pos.z - target->world.pos.z) < 100.0f) {
+         if (++this->playerDetectionTimer > 9) {
+             this->actionFunc = EnGoma_EggFallToGround;
+         }
+@@ -310,7 +312,7 @@
+     Actor_SetScale(&this->actor, 0.005f);
+     this->gomaType = ENGOMA_NORMAL;
+     this->actionTimer = 5;
+-    this->actor.shape.rot.y = Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor);
++    this->actor.shape.rot.y = this->actor.yawTowardsPlayer;
+     this->actor.world.rot.y = this->actor.shape.rot.y;
+     EnGoma_SpawnHatchDebris(this, play);
+     this->eggScale = 1.0f;
+@@ -465,7 +467,7 @@
+     SkelAnime_Update(&this->skelanime);
+     Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
+ 
+-    targetAngle = Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor);
++    targetAngle = this->actor.yawTowardsPlayer;
+     Math_ApproachS(&this->actor.world.rot.y, targetAngle, 2, 4000);
+     Math_ApproachS(&this->actor.shape.rot.y, targetAngle, 2, 3000);
+ 
+@@ -525,7 +527,7 @@
+ void EnGoma_Stand(EnGoma* this, PlayState* play) {
+     SkelAnime_Update(&this->skelanime);
+     Math_ApproachZeroF(&this->actor.speedXZ, 0.5f, 2.0f);
+-    Math_ApproachS(&this->actor.shape.rot.y, Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor), 2,
++    Math_ApproachS(&this->actor.shape.rot.y, this->actor.yawTowardsPlayer, 2,
+                    3000);
+ 
+     if (this->actionTimer == 0) {
+@@ -599,8 +601,8 @@
+     s16 eyePitch;
+     s16 eyeYaw;
+ 
+-    eyeYaw = Actor_WorldYawTowardActor(&this->actor, &GET_PLAYER(play)->actor) - this->actor.shape.rot.y;
+-    eyePitch = Actor_WorldPitchTowardActor(&this->actor, &GET_PLAYER(play)->actor) - this->actor.shape.rot.x;
++    eyeYaw = this->actor.yawTowardsPlayer - this->actor.shape.rot.y;
++    eyePitch = Actor_WorldPitchTowardActor(&this->actor, TogetherEnemy_GetTarget(&this->actor)) - this->actor.shape.rot.x;
+ 
+     if (eyeYaw > 6000) {
+         eyeYaw = 6000;

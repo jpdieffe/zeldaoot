@@ -3,6 +3,8 @@
 // still control Link animation, items, quest flags and level transitions.
 const TEAM_PACKETS=new Set(['GIVE_ITEM','SET_FLAG','UNSET_FLAG','SET_CHECK_STATUS','UPDATE_BEANS_COUNT','UPDATE_DUNGEON_ITEMS','ENTRANCE_DISCOVERED','GAME_COMPLETE']);
 const TARGETED=new Set(['PLAYER_UPDATE','PLAYER_SFX','OCARINA_SFX','REQUEST_TELEPORT','TELEPORT_TO']);
+const COMBAT=new Set(['ENEMY_STATE','ENEMY_SPAWN','ENEMY_DESPAWN','ENEMY_DIED','ENEMY_HIT','ENEMY_HIT_REQUEST','ENEMY_ROSTER']);
+const validKey=k=>typeof k==='string'&&/^(0|[1-9][0-9]{0,19})$/.test(k)&&BigInt(k)<=18446744073709551615n;
 const defaults=id=>({clientId:id,name:id===1?'Green Link':'Blue Link',color:id===1?{r:104,g:215,b:127}:{r:104,g:177,b:255},clientVersion:'together-v1',teamId:'together',online:true,self:false,seed:0,isSaveLoaded:false,isGameComplete:false,sceneNum:-1,entranceIndex:0});
 export class AnchorRelay {
  constructor(send){this.send=send;this.clients=new Map();this.waitingForHost=false;}
@@ -28,6 +30,17 @@ export class AnchorRelay {
   }
   if(packet.type==='UPDATE_TEAM_STATE'){
    if(id===1&&packet.state&&this.clients.has(2))this.send(2,{...packet,targetTeamId:'together',queue:[]});return;
+  }
+  if(COMBAT.has(packet.type)){
+   const sender=this.clients.get(id),recipient=this.clients.get(other);
+   if(!sender.isSaveLoaded||!recipient?.isSaveLoaded||packet.targetClientId!==other||!Number.isInteger(packet.sceneNum)||packet.sceneNum!==sender.sceneNum||packet.sceneNum!==recipient.sceneNum)return;
+   const authority=Math.min(id,other),request=packet.type==='ENEMY_HIT_REQUEST'||(packet.type==='ENEMY_ROSTER'&&packet.request===true);
+   if(request?other!==authority:id!==authority)return;
+   if(packet.key!==undefined&&!validKey(packet.key)||packet.parentKey!==undefined&&!validKey(packet.parentKey))return;
+   if(packet.type==='ENEMY_STATE'&&(!Array.isArray(packet.enemies)||packet.enemies.length>256||packet.enemies.some(e=>!validKey(e.key))))return;
+   if(packet.type==='ENEMY_ROSTER'&&!request&&(!Array.isArray(packet.entries)||packet.entries.length>256||packet.entries.some(e=>!validKey(e.key))))return;
+   if(packet.type==='ENEMY_HIT_REQUEST'&&(!Number.isInteger(packet.collider)||packet.collider<0||packet.collider>=12||!Number.isInteger(packet.element)||packet.element<0||packet.element>=128))return;
+   this.send(other,packet);return;
   }
   if(TARGETED.has(packet.type)){
    if(packet.targetClientId===other&&this.clients.has(other))this.send(other,packet);return;
