@@ -3,7 +3,7 @@ import sys, shutil, subprocess
 source = Path(sys.argv[1]).resolve()
 root = Path(__file__).resolve().parent.parent
 changed = []
-for patch in ['combat.patch', 'targeting.patch']:
+for patch in ['combat.patch', 'targeting.patch', 'skulltula.patch']:
     path = root / 'native' / patch
     subprocess.run(['git', 'apply', '--check', str(path)], cwd=source, check=True)
     subprocess.run(['git', 'apply', str(path)], cwd=source, check=True)

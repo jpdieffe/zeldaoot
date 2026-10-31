@@ -18,10 +18,9 @@ extern "C" {
 #include "functions.h"
 #include "src/overlays/actors/ovl_Boss_Goma/z_boss_goma.h"
 #include "src/overlays/actors/ovl_En_Dekubaba/z_en_dekubaba.h"
-typedef struct EnSt EnSt;
 void BossGoma_SetupDefeated(BossGoma*, PlayState*);
 void BossGoma_SetupFloorIdle(BossGoma*);
-s32 EnSt_CheckHitLink(EnSt*, PlayState*);
+void TogetherEnemy_SkulltulaContact(Actor*, PlayState*);
 
 extern PlayState* gPlayState;
 }
@@ -894,6 +893,11 @@ static void OnShouldEnemyUpdate(Actor* actor, bool* should) {
 
     auto rs = remoteStates.find(st.key);
     if (rs == remoteStates.end() || (tickCounter - rs->second.rxTick) > STREAM_STALE_TICKS) {
+        if (st.suppressed && AnySameScenePeer()) {
+            // A backgrounded phone or delayed network must not fork the fight.
+            *should = false;
+            return;
+        }
         if (st.suppressed) {
             EndSuppression(actor, st, "stale");
         }
@@ -934,12 +938,12 @@ static void OnShouldEnemyUpdate(Actor* actor, bool* should) {
     }
 
     DetectAndForwardLocalHits(actor, st);
-    if (actor->id == ACTOR_EN_ST) EnSt_CheckHitLink((EnSt*)actor, gPlayState);
 
     ApplyPose(actor, st, r);
     if (adapter != nullptr && adapter->DeserializeExtras != nullptr && !r.extras.is_null()) {
         adapter->DeserializeExtras(actor, r.extras);
     }
+    if (actor->id == ACTOR_EN_ST) TogetherEnemy_SkulltulaContact(actor, gPlayState);
 
     SubmitColliders(actor, st, r);
 

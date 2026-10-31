@@ -1,0 +1,11 @@
+--- a/soh/src/overlays/actors/ovl_En_St/z_en_st.h
++++ b/soh/src/overlays/actors/ovl_En_St/z_en_st.h
+@@ -6,7 +6,7 @@
+ 
+ struct EnSt;
+ 
+-typedef void (*EnStActionFunc)(struct EnSt* this, PlayState* play);
++typedef void (*EnStActionFunc)(struct EnSt* actor, PlayState* play);
+ 
+ typedef struct EnSt {
+     /* 0x0000 */ Actor actor;
