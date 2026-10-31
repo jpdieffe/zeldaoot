@@ -106,7 +106,7 @@ EMSCRIPTEN_KEEPALIVE const char* together_state() {
         state["peers"] = nlohmann::json::array();
         for (const auto& [id, client] : Anchor::Instance->clients) {
             if (client.self || !client.online) continue;
-            state["peers"].push_back({{"id", id}, {"scene", client.sceneNum}, {"visible", client.player != nullptr}});
+            state["peers"].push_back({{"id", id}, {"scene", client.sceneNum}, {"visible", client.player != nullptr && client.isSaveLoaded && client.sceneNum == gPlayState->sceneNum}});
         }
     }
     result = state.dump();
