@@ -1,0 +1,11 @@
+Shared combat adapts EnemySync and BossAdapters from bghill95/OOT-True-Co-op,
+commit 6cd4c47 (https://github.com/bghill95/OOT-True-Co-op), on the project's
+pinned zalo/Shipwright engine. Original source comments and engine license
+notices are retained. Browser transport, exact uint64 identity encoding,
+collision-element requests, authoritative validation, per-collider masks,
+targeting, lifecycle and Gohma defeat corrections are project adaptations.
+
+Initial supported roster: Deku Baba, Withered Deku Baba, Skulltula,
+Skullwalltula, Deku Scrub, Gohma larvae, Keese, and Queen Gohma.
+Other enemies/bosses are intentionally excluded until individually adapted
+and verified. Source presence alone is not a browser acceptance-test result.

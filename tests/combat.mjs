@@ -37,6 +37,7 @@ try{
  // Combat contact remains live. Keep test players alive while the test waits
  // for native vulnerability windows; player damage/team death have separate tests.
  for(const p of pages)await p.evaluate(()=>{window.combatTestHeal=setInterval(()=>Module._together_debug(1,48),250);});
+ await debug(host,14,40);await debug(guest,13,40);
  await wait(guest,()=>together.state.combat.enemies.some(e=>e.id===40&&e.suppressed));
  const initial=(await boss(host)).hp;assert.ok(initial>0);
  console.log('GOHMA MIRRORED',initial,'HP, guest colliders:',(await boss(guest)).colliders);
@@ -70,6 +71,7 @@ try{
  console.log('SHARED GOHMA DEFEAT PASS');
  for(const p of pages)await wait(p,()=>together.state.combat.hearts===1&&together.state.combat.warps===1&&together.state.combat.clear);
  console.log('BOTH PLAYERS RECEIVE HEART, WARP, AND ROOM CLEAR');
+ await host.screenshot({path:'test-results/gohma-host-rewards.png'});await guest.screenshot({path:'test-results/gohma-guest-rewards.png'});
  assert.deepEqual(errors,[]);
 }catch(e){
  for(const[i,p]of pages.entries()){const s=await state(p);if(s?.combat)for(const e of s.combat.enemies){delete e.jt;delete e.cs;}console.error('STATE',i,JSON.stringify(s));await p.screenshot({path:`test-results/combat-failure-${i}.png`});}

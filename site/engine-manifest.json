@@ -1,16 +1,16 @@
 {
   "source": "https://github.com/zalo/Shipwright",
   "sourceCommit": "f81ff64afdd8e0489237bd03c6b026582f6dc70d",
-  "projectBuildCommit": "6639ed94c1b4c7da7f37b7602000674e217ae03c",
+  "projectBuildCommit": "c6f279364c29508b52ae46898616a0ec6e865735",
   "emscripten": "3.1.64",
   "files": {
     "soh.js": {
       "bytes": 507766,
-      "sha256": "f3a5afc6be9cc250b9c4ab5dcb518fc1d1a3653c66a973aaa3dd01bee020ebb0"
+      "sha256": "4ac996326d04ebbfb16d73a0940ab1f30afe29f997459e2e1b75a51066f336c9"
     },
     "soh.wasm": {
-      "bytes": 24531244,
-      "sha256": "70148ce31e2b32e65a10a8889c930f4134e1a5a189e2a1a9f5843b33d450aa46"
+      "bytes": 24683210,
+      "sha256": "a7ccea33bab7dc34d67cb6cf66aa3070093e8ec429f39923ef0b1e6ae534b1f9"
     },
     "soh.data": {
       "bytes": 1,

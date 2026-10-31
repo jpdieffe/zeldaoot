@@ -2,7 +2,7 @@ import {AnchorRelay,TeamRules} from './relay.js';
 export class AdventureNetwork {
  constructor({role,code,onNotice,onState,onReset}){
   Object.assign(this,{role,code,onNotice,onState,onReset});this.id=role==='host'?1:2;this.epoch=0;this.socket=null;this.pending=[];this.connection=null;this.closed=false;this.connected=false;
-  this.hostId='zeldaoot-together-v1-'+code;
+  this.hostId='zeldaoot-together-v2-'+code;
   this.relay=role==='host'?new AnchorRelay((id,packet)=>id===1?this.deliver(packet):this.send({kind:'anchor',packet})):null;
   this.rules=role==='host'?new TeamRules(reset=>{this.applyReset(reset);this.send(reset);}):null;
  }
