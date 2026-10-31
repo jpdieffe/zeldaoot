@@ -1820,7 +1820,7 @@ void Debug(int command, int value) {
             player->actor.world.pos.z += command == 13 ? 45 : 200;
             player->actor.world.pos.y += 5;
             player->actor.velocity = {0, 0, 0};
-            player->actor.shape.rot.y = player->actor.world.rot.y = player->currentYaw = Actor_WorldYawTowardActor(&player->actor, nearest);
+            player->actor.shape.rot.y = player->actor.world.rot.y = player->yaw = Actor_WorldYawTowardActor(&player->actor, nearest);
         }
         return;
     }
