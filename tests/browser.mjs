@@ -10,11 +10,14 @@ try{
  for(const role of ['host','join']){
   const page=await browser.newPage({viewport:{width:960,height:640}});pages.push(page);page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(/error|abort|Exception|connect/i.test(m.text()))logs.push(role+' '+m.text());});
   if(!process.env.PUBLIC_SIGNALING)await signaling(page);
+  if(process.env.JOIN_RECOVERY&&role==='join')await page.route('**/play.js',async route=>{const response=await route.fetch();await route.fulfill({response,body:(await response.text()).replace('meet:()=>Module._together_meet?.()', 'meet:()=>{window.meetAttempts=(window.meetAttempts||0)+1;return window.meetAttempts<=2?0:Module._together_meet?.();}')});});
   await page.goto(`${base}play.html?role=${role}&room=${code}&debug`);
   await page.waitForFunction(()=>window.together?.state?.loaded,null,{timeout:120000});console.log(role,'BOOT',await state(page));
+  if(process.env.JOIN_RECOVERY&&role==='host'){await debug(page,3,0);await wait(page,()=>together.state.loaded&&together.state.scene===0);}
  }
  const[host,guest]=pages;
  for(const page of pages)await wait(page,()=>together.state.peers.some(p=>p.visible));
+ if(process.env.JOIN_RECOVERY){await wait(guest,()=>together.joinedHost&&together.state.scene===0);assert.ok(await guest.evaluate(()=>window.meetAttempts>=3));console.log('FAILED INITIAL MEETUP RECOVERED');}
  console.log('TWO VISIBLE LINKS PASS');
  await debug(guest,1,16);await wait(guest,()=>together.state.health===16);assert.equal((await state(host)).health,48);console.log('SEPARATE HEALTH PASS');
  await debug(guest,4);for(const page of pages)await wait(page,()=>!!(together.state.equipment&1));console.log('SHARED INVENTORY PASS');
@@ -35,6 +38,7 @@ try{
  await debug(guest,3,0);await wait(guest,()=>together.state.loaded&&together.state.scene===0);await guest.waitForTimeout(1000);const epoch=await host.evaluate(()=>together.network.epoch);await debug(guest,2);
  for(const p of pages)await wait(p,e=>together.state.loaded&&together.state.epoch===e+1&&together.state.scene===0&&together.state.health===together.state.maxHealth,epoch);
  console.log('CROSS-SCENE TEAM RESET PASS');
+ if(process.env.JOIN_RECOVERY){await guest.evaluate(()=>together.network.connection.close());await wait(guest,()=>together.network.generation>0);await wait(guest,()=>together.network.connected&&together.joinedHost);console.log('LIVE TRANSPORT REJOIN PASS');}
  await guest.reload();await guest.waitForFunction(()=>window.together?.state?.loaded&&together.state.peers.some(p=>p.visible),null,{timeout:120000});console.log('GUEST REJOIN PASS');
  assert.deepEqual(errors,[]);console.log('BROWSER CO-OP CHECKS PASSED');
 }catch(error){for(const[i,page]of pages.entries()){console.error('FAILED',i,await page.evaluate(()=>({state:window.together?.state,errors:window.together?.errors,notice:document.querySelector('#play-notice')?.textContent,states:window.together?.network?.relay?[...together.network.relay.clients]:null})));await page.screenshot({path:`test-results/failure-${i}.png`});}throw error;}

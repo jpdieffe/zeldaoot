@@ -1,5 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {AnchorRelay,TeamRules} from '../site/relay.js';
 function fixture(){const packets=[];const relay=new AnchorRelay((id,p)=>packets.push([id,p]));relay.connect(1);relay.connect(2);packets.length=0;return{packets,relay};}
+test('loaded host handshake releases a guest snapshot requested during startup',()=>{
+ const{relay,packets}=fixture();relay.receive(2,{type:'REQUEST_TEAM_STATE'});
+ relay.receive(1,{type:'HANDSHAKE',clientState:{isSaveLoaded:true}});
+ assert.equal(relay.waitingForHost,false);
+ assert.equal(packets.filter(([id,p])=>id===1&&p.type==='REQUEST_TEAM_STATE').length,1);
+});
 test('room settings preserve separate players and disable friendly damage',()=>{const{relay,packets}=fixture();relay.receive(2,{type:'HANDSHAKE',clientState:{name:'spoof',clientId:1,isSaveLoaded:true}});assert.equal(relay.clients.get(2).name,'Blue Link');assert.equal(packets.find(p=>p[1].type==='UPDATE_ROOM_STATE')[1].state.pvpMode,0);assert.equal(packets.at(-1)[1].state.find(c=>c.self).clientId,2);});
 test('native player updates preserve animation data and authenticate the sender',()=>{const{relay,packets}=fixture();relay.receive(2,{type:'PLAYER_UPDATE',clientId:1,targetClientId:1,jointTable:[1,2,3]});assert.deepEqual(packets,[[1,{type:'PLAYER_UPDATE',clientId:2,targetClientId:1,jointTable:[1,2,3]}]]);});
 test('guest requests wait for host save and guest snapshots cannot overwrite the host',()=>{const{relay,packets}=fixture();relay.receive(2,{type:'REQUEST_TEAM_STATE'});assert.equal(packets.length,0);relay.receive(1,{type:'UPDATE_CLIENT_STATE',state:{isSaveLoaded:true}});assert.equal(packets.at(-1)[0],1);assert.equal(packets.at(-1)[1].type,'REQUEST_TEAM_STATE');packets.length=0;relay.receive(2,{type:'UPDATE_TEAM_STATE',state:{health:0}});assert.equal(packets.length,0);relay.receive(1,{type:'UPDATE_TEAM_STATE',state:{inventory:{items:[1,2]}}});assert.equal(packets[0][0],2);});

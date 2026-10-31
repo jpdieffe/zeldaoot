@@ -1,8 +1,10 @@
 import {parseCode} from './rooms.js';
 import {AdventureNetwork} from './network.js';
+import {Rendezvous} from './rendezvous.js';
+const rendezvous=new Rendezvous();let joinGeneration=0,joinStatus='Connecting to your friend';
 const params=new URLSearchParams(location.search),role=params.get('role')==='join'?'join':'host',code=parseCode(params.get('room')||'');
 if(!code){location.replace('./');throw Error('A room code is required');}
-const $=s=>document.querySelector(s),players=new Map();let resetting=false,pendingReset=null,previousLoaded=false,joinedHost=false,engineReady=false;
+const $=s=>document.querySelector(s),players=new Map();let resetting=false,pendingReset=null,previousLoaded=false,engineReady=false;
 document.body.insertAdjacentHTML('beforeend',`<div id="together-ui"><nav class="session-bar"><a href="./">← Leave</a><strong>ROOM <span id="room-code"></span></strong><span id="connection-status">Preparing Hyrule…</span><button id="invite">Invite ↗</button><button id="meet">Meet up</button><button id="sound">Enable sound</button><button id="expand">Expand</button><button id="help">?</button></nav><div id="party-health"></div><div id="play-notice" role="status"></div><div id="team-reset" hidden><strong>Our courage. Our second chance.</strong><p>Both heroes are returning to the entrance.</p></div><dialog id="help-dialog"><h2>Your companion in Hyrule.</h2><p>Explore as Green Link and Blue Link. Enter the same area to see each other. Meet up brings you to your friend. Items and quest flags are shared; health stays separate. If either hero dies, both restart at that area’s entrance.</p><p>Fight supported Deku Tree enemies and Gohma together: the host controls the fight and both heroes can deal damage. Stay in the same room. Other enemy types and bosses still run separately.</p><p><b>Phone:</b> move with the left stick. A acts/rolls, B uses your sword, Z targets, R shields, and the yellow C buttons use equipped items. Start opens your inventory. Rotate sideways for the best view.</p><p><b>Keyboard:</b> WASD moves · X acts · C attacks · Z targets · Space opens inventory · arrow keys use C items. Escape opens engine settings. Gamepads are supported.</p><p>Keep both game tabs visible. Save through the game’s inventory menu. The host’s save stays in their browser. Connection options in the lobby accept your TURN relay if your network needs one.</p><button id="close-help">Back to the adventure</button></dialog></div>`);
 $('#room-code').textContent=code;$('#overlay h1').textContent='Ocarina of Time Together';$('#overlay .subtitle').textContent='Preparing a kingdom for two.';$('#otr-picker').hidden=true;
 window.together={role,code,state:null,players:[],errors:[],network:null};
@@ -19,7 +21,7 @@ function renderHealth(){
   for(let i=0;i<Math.min(max,20);i++){const heart=document.createElement('i');heart.textContent='♥';heart.style.opacity=Math.max(.2,Math.min(1,current-i));meter.append(heart);}
   row.append(label,meter);hud.append(row);
  }
- $('#connection-status').textContent=network.connected?'Two heroes connected':role==='host'?'Waiting for your friend':'Connecting to your friend';
+ $('#connection-status').textContent=role==='join'?joinStatus:network.connected?(players.get(2)?.loaded&&performance.now()-network.lastPlayer<3000?'Two heroes connected':'Your friend is joining...'):'Waiting for your friend';
 }
 const network=new AdventureNetwork({role,code,onNotice:notice,onState:(id,state)=>{if(state)players.set(id,state);else players.delete(id);renderHealth();},onReset:reset=>{
  resetting=true;release();$('#team-reset').hidden=false;
@@ -79,7 +81,7 @@ setInterval(()=>{
  if(pendingReset&&performance.now()>=pendingReset.applyAfter){Module._together_restart(pendingReset.entrance,pendingReset.epoch);pendingReset=null;}
  try{const state=JSON.parse(Module.ccall('together_state','string',[],[]));together.state=state;network.status(state);
   if(state.loaded){if(!previousLoaded)$('#overlay').classList.add('hidden');if(resetting&&state.epoch===network.epoch&&!state.dead&&state.health===state.maxHealth){resetting=false;$('#team-reset').hidden=true;}}
-  if(role==='join'&&!joinedHost&&state.loaded&&network.connected&&players.get(1)?.loaded){joinedHost=true;setTimeout(()=>Module._together_meet?.(),1200);}
+  if(role==='join'){if(joinGeneration!==network.generation){joinGeneration=network.generation;rendezvous.reset();}joinStatus=rendezvous.update({now:performance.now(),connected:network.connected,ready:network.snapshotReceived,local:state,host:players.get(1),freshPlayer:performance.now()-network.lastPlayer<2000&&network.lastPlayer>0,meet:()=>Module._together_meet?.()});together.joinedHost=rendezvous.done;}
   previousLoaded=state.loaded;
  }catch(error){if(!together.errors.includes(error.message))together.errors.push(error.message);}
 },100);

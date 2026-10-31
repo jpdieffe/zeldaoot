@@ -9,7 +9,8 @@ const defaults=id=>({clientId:id,name:id===1?'Green Link':'Blue Link',color:id==
 export class AnchorRelay {
  constructor(send){this.send=send;this.clients=new Map();this.waitingForHost=false;}
  connect(id){if(![1,2].includes(id)||this.clients.has(id))return false;this.clients.set(id,defaults(id));this.broadcastClients();return true;}
- disconnect(id){this.clients.delete(id);this.broadcastClients();}
+ disconnect(id){this.clients.delete(id);if(id===2)this.waitingForHost=false;this.broadcastClients();}
+ flushHostWaiter(){if(this.waitingForHost&&this.clients.get(1)?.isSaveLoaded&&this.clients.has(2)){this.waitingForHost=false;this.send(1,{type:'REQUEST_TEAM_STATE',clientId:2,targetTeamId:'together'});}}
  broadcastClients(){for(const id of this.clients.keys())this.send(id,{type:'ALL_CLIENT_STATE',state:[...this.clients.values()].map(c=>({...c,self:c.clientId===id}))});}
  room(){return{ownerClientId:1,pvpMode:0,showLocationsMode:1,teleportMode:1,syncItemsAndFlags:1};}
  update(id,state){const current=this.clients.get(id),base=defaults(id);if(!current||!state)return;for(const key of ['clientVersion','seed','isSaveLoaded','isGameComplete','sceneNum','entranceIndex'])if(state[key]!==undefined)current[key]=state[key];Object.assign(current,{name:base.name,color:base.color,teamId:'together',online:true,clientId:id});}
@@ -17,11 +18,11 @@ export class AnchorRelay {
   if(!this.clients.has(id)||!input||typeof input.type!=='string')return;
   const packet={...input,clientId:id},other=id===1?2:1;
   if(packet.type==='HANDSHAKE'){
-   this.update(id,packet.clientState);this.send(id,{type:'UPDATE_ROOM_STATE',state:this.room()});this.broadcastClients();return;
+   this.update(id,packet.clientState);this.send(id,{type:'UPDATE_ROOM_STATE',state:this.room()});this.broadcastClients();this.flushHostWaiter();return;
   }
   if(packet.type==='UPDATE_CLIENT_STATE'){
    this.update(id,packet.state);if(this.clients.has(other))this.send(other,{type:packet.type,clientId:id,state:this.clients.get(id)});
-   if(id===1&&this.waitingForHost&&this.clients.get(1).isSaveLoaded){this.waitingForHost=false;this.send(1,{type:'REQUEST_TEAM_STATE',clientId:2,targetTeamId:'together'});}return;
+   this.flushHostWaiter();return;
   }
   if(packet.type==='UPDATE_ROOM_STATE'){this.send(id,{type:packet.type,state:this.room()});return;}
   if(packet.type==='REQUEST_TEAM_STATE'){
