@@ -39,7 +39,11 @@ jobs:
             upstream/build-web
             emsdk-cache/emsdk-main/upstream/emscripten/cache
           key: zelda-f81ff64-${{ github.sha }}
-          restore-keys: zelda-f81ff64-
+          restore-keys: |
+            zelda-f81ff64-86e803f0169449c971d3286d720505d7001c7045
+            zelda-f81ff64-
+      - name: Capture cached compile commands
+        run: ninja -C upstream/build-web -t commands soh > compile-before.txt
       - run: python3 scripts/patch-engine.py upstream
       - name: Configure engine
         working-directory: upstream
@@ -60,11 +64,16 @@ jobs:
             touch upstream/soh/soh/web/together.cpp
           fi
       - name: Inspect incremental build plan
-        run: ninja -C upstream/build-web -n -d explain soh > build-plan.txt 2>&1
+        run: |
+          ninja -C upstream/build-web -t commands soh > compile-after.txt
+          ninja -C upstream/build-web -n -d explain soh > build-plan.txt 2>&1
       - uses: actions/upload-artifact@v4
         with:
           name: native-build-plan
-          path: build-plan.txt
+          path: |
+            build-plan.txt
+            compile-before.txt
+            compile-after.txt
           retention-days: 2
       - name: Compile native game
         working-directory: upstream
