@@ -53,6 +53,9 @@ jobs:
             export ZELDA_CACHE_REFERENCE="$REF"
             git -C upstream submodule foreach --recursive 'git ls-files -z | xargs -0 touch -r "$ZELDA_CACHE_REFERENCE"'
             find upstream/build-web/_deps -type f -newer "$REF" -exec touch -r "$REF" {} +
+            # setup-emsdk refreshes Clang's builtin header timestamps even at
+            # the same pinned SDK version, invalidating every cached object.
+            find "$EMSDK/upstream/lib/clang" -type f -newer "$REF" -exec touch -r "$REF" {} +
             # Our injected source remains newer and must compile on every build.
             touch upstream/soh/soh/web/together.cpp
           fi
