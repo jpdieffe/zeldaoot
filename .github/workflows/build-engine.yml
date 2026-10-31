@@ -56,6 +56,13 @@ jobs:
             # Our injected source remains newer and must compile on every build.
             touch upstream/soh/soh/web/together.cpp
           fi
+      - name: Inspect incremental build plan
+        run: ninja -C upstream/build-web -n -d explain soh > build-plan.txt 2>&1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-build-plan
+          path: build-plan.txt
+          retention-days: 2
       - name: Compile native game
         working-directory: upstream
         run: emmake cmake --build build-web --target soh --parallel 2
