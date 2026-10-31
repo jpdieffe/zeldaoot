@@ -132,6 +132,14 @@ EMSCRIPTEN_KEEPALIVE void together_debug(int command, int value) {
     if (command == 2) { gSaveContext.health = 0; grace = 0; }
     if (command == 3) { queuedEntrance = value; }
     if (command == 4) { Item_Give(gPlayState, ITEM_SWORD_KOKIRI); }
-    if (command >= 10 && command <= 12) EnemySync::Debug(command, value);
+    if (command == 5) {
+        Item_Give(gPlayState, ITEM_SWORD_KOKIRI);
+        Item_Give(gPlayState, ITEM_SHIELD_DEKU);
+        gSaveContext.equips.buttonItems[0] = ITEM_SWORD_KOKIRI;
+        gSaveContext.equips.equipment = (gSaveContext.equips.equipment & ~0xff) | 0x11;
+        Player_SetEquipmentData(gPlayState, GET_PLAYER(gPlayState));
+        Interface_LoadItemIcon1(gPlayState, 0);
+    }
+    if (command >= 10 && command <= 15) EnemySync::Debug(command, value);
 }
 }

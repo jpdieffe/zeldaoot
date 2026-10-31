@@ -158,6 +158,7 @@ static SkelAnime* skelAnimeRing[8];
 static uint8_t skelAnimeRingIndex = 0;
 
 static uint64_t tickCounter = 0;
+static uint64_t requestsSent = 0, requestsApplied = 0;
 static uint32_t cachedAuthorityId = UINT32_MAX;
 
 // Task 2 (W1 Step 2): per-tick perception-target cache. Holds the clientIds of
@@ -279,6 +280,7 @@ template <typename F> static void ForEachColliderInfo(Collider* collider, F fn) 
 }
 
 static void Reset() {
+    requestsSent = requestsApplied = 0;
     keyToActor.clear();
     tracked.clear();
     remoteStates.clear();
@@ -509,6 +511,7 @@ void ApplyRemoteHit(Actor* actor, uint8_t damage, uint32_t dmgFlags, Vec3s hitPo
 
     Collider* selected = request ? (colliderIndex >= 0 && colliderIndex < (int)state.colliders.size() ? state.colliders[colliderIndex] : nullptr) : state.acCollider;
     if (request && (!selected || !(selected->acFlags & AC_ON))) return;
+    if (request) ++requestsApplied;
     if (selected != nullptr) {
         Collider* col = selected;
         int index = 0;
@@ -656,6 +659,7 @@ static void DetectAndForwardLocalHits(Actor* actor, TrackedState& st) {
     actor->colChkInfo.damage = 0;
 
     TogetherEnemy::SendPacket_EnemyHitRequest(actor, st.key, damage, dmgFlags, hitPos, colliderIndex, elementIndex, actor->colChkInfo.damageEffect);
+    ++requestsSent;
 
     // Immediate local reaction while the authority's verdict streams back.
     Actor_SetColorFilter(actor, 0x4000, 255, 0, 8);
@@ -1778,6 +1782,7 @@ extern "C" void TogetherEnemy_ColliderSubmit(Actor* actor, Collider* collider, i
 
 nlohmann::json Describe() {
     nlohmann::json result = {{"authority", CurrentAuthorityId()}, {"enemies", nlohmann::json::array()}};
+    result["requestsSent"] = requestsSent; result["requestsApplied"] = requestsApplied;
     int hearts = 0, warps = 0;
     for (int category = 0; category < ACTORCAT_MAX; ++category) {
         for (Actor* actor = gPlayState->actorCtx.actorLists[category].head; actor; actor = actor->next) {
@@ -1792,6 +1797,7 @@ nlohmann::json Describe() {
         e["id"] = actor->id; e["room"] = actor->room;
         e["suppressed"] = st.suppressed; e["dying"] = st.dying;
         e["colliders"] = st.colliders.size();
+        e["target"] = TogetherEnemy_GetTarget(actor)->world.pos;
         if (actor->id == ACTOR_BOSS_GOMA) {
             auto* g = (BossGoma*)actor;
             e["closed"] = g->eyeClosedTimer; e["inv"] = g->invincibilityFrames;
@@ -1802,6 +1808,29 @@ nlohmann::json Describe() {
     return result;
 }
 void Debug(int command, int value) {
+    if (command == 13 || command == 14) {
+        Actor* nearest = nullptr;
+        uint64_t key = UINT64_MAX;
+        for (auto& [actor, st] : tracked) {
+            if (actor->id == value && st.key < key && !st.dying) { nearest = actor; key = st.key; }
+        }
+        if (nearest) {
+            auto* player = GET_PLAYER(gPlayState);
+            player->actor.world.pos = nearest->home.pos;
+            player->actor.world.pos.z += command == 13 ? 45 : 200;
+            player->actor.world.pos.y += 5;
+            player->actor.velocity = {0, 0, 0};
+            player->actor.shape.rot.y = player->actor.world.rot.y = player->currentYaw = Actor_WorldYawTowardActor(&player->actor, nearest);
+        }
+        return;
+    }
+    if (command == 15) {
+        Actor* parent = nullptr;
+        for (auto& [actor, st] : tracked) if (actor->id == ACTOR_BOSS_GOMA) { parent = actor; break; }
+        if (parent) Actor_SpawnAsChild(&gPlayState->actorCtx, parent, gPlayState, ACTOR_EN_GOMA,
+            parent->world.pos.x + 100, -500, parent->world.pos.z, 0, 0, 0, 0);
+        return;
+    }
     // Called only through together_debug's URL opt-in. These set up repeatable
     // native combat tests; damage still travels through the live collider/request path.
     for (auto& [actor, st] : tracked) {
