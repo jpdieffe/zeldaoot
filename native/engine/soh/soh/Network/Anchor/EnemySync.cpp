@@ -1810,12 +1810,13 @@ void Debug(int command, int value) {
             if (g->subCameraId != 0) func_800C08AC(gPlayState, g->subCameraId, 0);
             g->subCameraId = 0;
             Play_ChangeCameraStatus(gPlayState, 0, 7);
-            func_8002DF54(gPlayState, &GET_PLAYER(gPlayState)->actor, 7);
+            Player_SetCsActionWithHaltedActors(gPlayState, &GET_PLAYER(gPlayState)->actor, 7);
             gPlayState->csCtx.state = 0;
             GET_PLAYER(gPlayState)->stateFlags1 &= ~PLAYER_STATE1_IN_CUTSCENE;
             BossGoma_SetupFloorIdle(g);
             g->eyeClosedTimer = 0; g->invincibilityFrames = 0; g->patienceTimer = 200;
             actor->world.pos.y = -640;
+            actor->shape.rot.x = 0;
         }
         if (command == 11) {
             // flags in low 28 bits; high nibble selects a body element for rejection tests.

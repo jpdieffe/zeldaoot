@@ -61,6 +61,6 @@ try{
  console.log('BOTH PLAYERS RECEIVE HEART, WARP, AND ROOM CLEAR');
  assert.deepEqual(errors,[]);
 }catch(e){
- for(const[i,p]of pages.entries()){console.error('STATE',i,JSON.stringify(await state(p)));await p.screenshot({path:`test-results/combat-failure-${i}.png`});}
+ for(const[i,p]of pages.entries()){const s=await state(p);if(s?.combat)for(const e of s.combat.enemies){delete e.jt;delete e.cs;}console.error('STATE',i,JSON.stringify(s));await p.screenshot({path:`test-results/combat-failure-${i}.png`});}
  throw e;
 }finally{await writeFile('test-results/combat.log',logs.join('\n'));await browser.close();server.close();}
