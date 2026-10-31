@@ -4,6 +4,7 @@
 void RegisterGohmaAdapter();
 void RegisterEnGomaAdapter();
 void RegisterEnDekubabaAdapter();
+void RegisterKarebabaAdapter();
 
 namespace EnemySync {
 
@@ -27,6 +28,7 @@ void RegisterBuiltInAdapters() {
     RegisterGohmaAdapter();
     RegisterEnGomaAdapter();
     RegisterEnDekubabaAdapter();
+    RegisterKarebabaAdapter();
 }
 
 } // namespace EnemySync

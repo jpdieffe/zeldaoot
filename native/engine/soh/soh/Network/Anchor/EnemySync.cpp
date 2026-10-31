@@ -534,6 +534,8 @@ void ApplyRemoteHit(Actor* actor, uint8_t damage, uint32_t dmgFlags, Vec3s hitPo
 }
 
 void ApplyRemoteDeath(Actor* actor, Actor* attacker, bool permanent) {
+    // This regrower has no HP pool; its adapter follows death/regrowth phases.
+    if (actor->id == ACTOR_EN_KAREBABA) return;
     auto it = tracked.find(actor);
     if (it == tracked.end()) {
         return;
@@ -1197,7 +1199,7 @@ static void Tick() {
             // Projectiles carry health 0 by design, so exclude them from the
             // health==0 exit here — they must fall through to the spawn broadcast
             // below (they are announced once, then run local physics on each side).
-            bool leftStream = st.deathCooldown > 0 || st.dying ||
+            bool leftStream = (st.deathCooldown > 0 && actor->id != ACTOR_EN_KAREBABA) || st.dying ||
                               (actor->colChkInfo.health == 0 && GetAdapter(actor->id) == nullptr && !st.projectile);
             if (leftStream) {
                 st.submitMask = 0; st.colliderMasks.clear();
@@ -1484,7 +1486,7 @@ nlohmann::json BuildRoster(int16_t roomNum) {
         }
         nlohmann::json e;
         e["key"] = std::to_string(st.key);
-        e["alive"] = actor->update != NULL && st.deathCooldown == 0 && !st.dying;
+        e["alive"] = actor->update != NULL && (st.deathCooldown == 0 || actor->id == ACTOR_EN_KAREBABA) && !st.dying;
         e["hp"] = actor->colChkInfo.health;
         entries.push_back(e);
     }
