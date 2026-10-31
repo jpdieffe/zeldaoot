@@ -1,0 +1,72 @@
+name: Build native Zelda web engine
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['native/**', 'scripts/patch-engine.py', '.github/workflows/build-engine.yml']
+permissions:
+  contents: read
+concurrency:
+  group: native-engine
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: zalo/Shipwright
+          ref: f81ff64afdd8e0489237bd03c6b026582f6dc70d
+          submodules: recursive
+          path: upstream
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libglew-dev libsdl2-dev libz-dev zip pkg-config
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+          actions-cache-folder: emsdk-cache
+      - name: Pin SDK path
+        run: |
+          EXPECTED="$GITHUB_WORKSPACE/emsdk-cache/emsdk-main"
+          echo "EMSDK=$EXPECTED" >> "$GITHUB_ENV"
+          echo "$EXPECTED" >> "$GITHUB_PATH"
+          echo "$EXPECTED/upstream/emscripten" >> "$GITHUB_PATH"
+      - uses: actions/cache/restore@v4
+        id: native-cache
+        with:
+          path: |
+            upstream/build-web
+            emsdk-cache/emsdk-main/upstream/emscripten/cache
+          key: zelda-f81ff64-${{ github.sha }}
+          restore-keys: zelda-f81ff64-
+      - run: python3 scripts/patch-engine.py upstream
+      - name: Configure engine
+        working-directory: upstream
+        run: emcmake cmake -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Preserve cached dependency timestamps
+        run: |
+          REF=$(find upstream/build-web -name '*.o' -printf '%T@ %p\n' | sort -n | head -1 | cut -d' ' -f2)
+          if [ -n "$REF" ]; then find upstream/build-web/_deps -type f -newer "$REF" -exec touch -r "$REF" {} +; fi
+      - name: Compile native game
+        working-directory: upstream
+        run: emmake cmake --build build-web --parallel 2
+      - uses: actions/cache/save@v4
+        if: always() && steps.native-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            upstream/build-web
+            emsdk-cache/emsdk-main/upstream/emscripten/cache
+          key: zelda-f81ff64-${{ github.sha }}
+      - name: Package engine
+        run: |
+          mkdir -p engine
+          cp upstream/build-web/soh/soh.js upstream/build-web/soh/soh.wasm upstream/build-web/soh/soh.data engine/
+          cp upstream/build-web/soh/soh.html engine/upstream.html
+          cp upstream/soh/soh/web/soh.o2r engine/
+          echo '${{ github.sha }}' > engine/build-commit.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zelda-engine
+          path: engine
+          retention-days: 14
